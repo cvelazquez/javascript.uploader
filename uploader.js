@@ -6,7 +6,7 @@
  * Tested on Chrome, IE10 and Firefox
  *
  * @author by Christian Velazquez
- * @version 0.1
+ * @version 0.2
  * @link https://github.com/cvelazquez/javascript.uploader
  */
 var uploader = uploader || {};
@@ -14,8 +14,9 @@ var uploader = uploader || {};
 	"use strict";
 
 	var randomId = Math.ceil(Math.random()*100000);
+	var binded = false;
 
-	var _createForm = function(options){
+	o.createInput = function(options){
 		if ( !document.getElementById("uploadForm"+randomId+"Input") ) {
 			var _input = document.createElement("input");
 			_input.setAttribute("type", "file");
@@ -24,7 +25,7 @@ var uploader = uploader || {};
 			_input.style.position = "fixed"; // Hidden inputs can not trigger click events in a few browsers / versions
 			_input.style.top = "-100px";
 			options.files = _input;
-			delete options.useGlobalForm;
+			binded = true;
 			_input.addEventListener("change", function(){
 				o.send(options);
 			});
@@ -42,7 +43,7 @@ var uploader = uploader || {};
 	var _getFormData = function(options){
 		var f = new FormData();
 		for ( var i = 0; i < options.files.files.length; i++ ) {
-			f.append("data[files][]", options.files.files[i]); // CakePHP $this->request->data['files'], Mormal PHP $_POST["data"]["files"];
+			f.append("data[files][]", options.files.files[i]); // CakePHP $this->request->data['files'], Normal PHP $_POST["data"]["files"];
 		}
 		options.formData = f;
 		return options;
@@ -60,6 +61,7 @@ var uploader = uploader || {};
 
 		ajax.addEventListener("readystatechange", function(){
 			if ( this.readyState == 4 ) {
+				options.files.value = '';
 				if ( this.status == 200 ) {
 					if ( typeof options.finished == "function" ) {
 						options.finished(JSON.parse(this.response));
@@ -78,12 +80,11 @@ var uploader = uploader || {};
 
 	o.send = function(options){
 		if ( o.supported ) {
-			if ( options.files && !options.useGlobalForm ) {
+			if ( options.files && binded ) {
+				console.log('_getFormData')
 				if ( options.files.files.length ) {
 					_upload(_getFormData(options));
 				}
-			} else {
-				_createForm(options);
 			}
 		}
 	};
@@ -96,20 +97,20 @@ var uploader = uploader || {};
 if ( typeof jQuery != "undefined" ) {
 	(function ($) {
 		$.fn.autoupload = function(options) {
+			var options = $.extend({}, options);
 			if ( typeof options == "object" ) {
 				$.each(this, function(i, obj){
 					if ( obj.tagName.toLowerCase() == "input" && obj.hasAttribute("type") && obj.getAttribute("type") == "file" ) {
 						options.files = obj;
-						$(obj).on({
+						$(obj).off('change').on({
 							change: function(e){
 								uploader.send(options);
 							}
 						});
 					} else {
-						options.useGlobalForm = true;
-						$(obj).on({
+						$(obj).off('click').on({
 							click: function(e){
-								uploader.send(options);
+								uploader.createInput(options);
 							}
 						});
 					}
