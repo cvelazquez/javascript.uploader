@@ -6,7 +6,7 @@
  * Tested on Chrome, IE10 and Firefox
  *
  * @author by Christian Velazquez
- * @version 0.2.1
+ * @version 0.2.2
  * @link https://github.com/cvelazquez/javascript.uploader
  */
 var uploader = uploader || {};
@@ -96,9 +96,9 @@ var uploader = uploader || {};
 if ( typeof jQuery != "undefined" ) {
 	(function ($) {
 		$.fn.autoupload = function(options) {
-			var options = $.extend(true, {}, options);
 			if ( typeof options == "object" ) {
 				$.each(this, function(i, obj){
+					var options = $.extend(true, {}, options);
 					if ( obj.tagName.toLowerCase() == "input" && obj.hasAttribute("type") && obj.getAttribute("type") == "file" ) {
 						options.files = obj;
 						$(obj).off('change').on({
