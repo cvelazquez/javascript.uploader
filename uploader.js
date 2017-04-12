@@ -6,111 +6,124 @@
  * Tested on Chrome, IE10 and Firefox
  *
  * @author by Christian Velazquez
- * @version 0.2.2
+ * @version 0.3
  * @link https://github.com/cvelazquez/javascript.uploader
  */
-var uploader = uploader || {};
-(function(o){
+function uploader(options, $){
 	"use strict";
-
+	
+	var self = this;
 	var randomId = Math.ceil(Math.random()*100000);
-	var binded = false;
+	self.options = options;
 
-	o.createInput = function(options){
-		if ( !document.getElementById("uploadForm"+randomId+"Input") ) {
-			var _input = document.createElement("input");
-			_input.setAttribute("type", "file");
-			_input.setAttribute("id", "uploadForm"+randomId+"Input");
-			_input.setAttribute("multiple", "multiple");
-			_input.style.position = "fixed"; // Hidden inputs can not trigger click events in a few browsers / versions
-			_input.style.top = "-100px";
-			options.files = _input;
-			binded = true;
-			_input.addEventListener("change", function(){
-				o.send(options);
-			});
-			if ( document.body ) {
-				document.body.appendChild(_input);
-			}
-		} else {
-			var _input = document.getElementById("uploadForm"+randomId+"Input");
+	var _createInput = function(){
+		if ( $("#uploadForm"+randomId+"Input").length ) {
+			$("#uploadForm"+randomId+"Input").off().remove();
 		}
-		var e = document.createEvent("MouseEvents");
-		e.initEvent("click", true, true);
-		_input.dispatchEvent(e, true);
-	};
 
-	var _getFormData = function(options){
+		var id = "uploadForm"+randomId+"Input";
+		var _input = document.createElement("input");
+		_input.style.top = "-100px";
+		_input.style.position = "fixed";
+		_input.setAttribute("type", "file");
+		_input.setAttribute("id", id);
+		_input.setAttribute("multiple", "multiple");
+
+		if ( document.body ) {
+			document.body.appendChild(_input);
+		}
+
+		self.options.files = _input;
+		$(self.options.files).change(function(){
+			self.send();
+		});
+	}
+
+	var _getFormData = function(){
 		var f = new FormData();
-		for ( var i = 0; i < options.files.files.length; i++ ) {
-			f.append("data[files][]", options.files.files[i]); // CakePHP $this->request->data['files'], Normal PHP $_POST["data"]["files"];
+		for ( var i = 0; i < self.options.files.files.length; i++ ) {
+			f.append("data[files][]", self.options.files.files[i]);
 		}
-		options.formData = f;
-		return options;
+		self.options.formData = f;
+		return self;
 	};
 
-	var _upload = function(options){
+	var _upload = function(){
 		var ajax = new XMLHttpRequest();
 		ajax.upload.addEventListener("progress", function(e){
 			if ( e.lengthComputable === true ) {
-				if ( typeof options.progress == "function" ) {
-					options.progress(Math.round(e.loaded/e.total*100));
+				if ( typeof self.options.progress == "function" ) {
+					self.options.progress(Math.round(e.loaded/e.total*100));
 				}
 			}
 		});
 
 		ajax.addEventListener("readystatechange", function(){
 			if ( this.readyState == 4 ) {
-				options.files.value = '';
+				self.options.files.value = '';
 				if ( this.status == 200 ) {
-					if ( typeof options.finished == "function" ) {
-						options.finished(JSON.parse(this.response));
+					if ( typeof self.options.finished == "function" ) {
+						self.options.finished(JSON.parse(this.response));
 					}
 				} else {
-					if ( typeof options.error == "function" ) {
-						options.error(this.status);
+					if ( typeof self.options.error == "function" ) {
+						self.options.error(this.status);
 					}
 				}
 			}
 		});
 
-		ajax.open("post",options.url);
-		ajax.send(options.formData);
+		ajax.open("post",self.options.url);
+		ajax.send(self.options.formData);
 	};
 
-	o.send = function(options){
-		if ( o.supported ) {
-			if ( options.files && binded ) {
-				if ( options.files.files.length ) {
-					_upload(_getFormData(options));
-				}
-			}
+	self.send = function(){
+		if ( !self.supported ) {
+			throw new Error("Upload not supported");
 		}
+
+		if ( ! 'files' in self.options ) {
+			throw new Error("No files attached");
+		}
+
+		if ( !self.options.files.files.length ) {
+			throw new Error("No files attached (zero)");
+		}
+
+		_getFormData()
+		_upload();
 	};
 
-	o.supported = 'upload' in new XMLHttpRequest;
+	self.triggerClick = function(){
+		_createInput();
+		var e = document.createEvent("MouseEvents");
+		e.initEvent("click", true, true);
+		self.options.files.dispatchEvent(e, true);
+	}
 
-})(uploader);
+	self.supported = 'upload' in new XMLHttpRequest;
+
+	return self;
+}
 
 /** jQuery Plugin **/
 if ( typeof jQuery != "undefined" ) {
 	(function ($) {
 		$.fn.autoupload = function(options) {
+			var options = $.extend(true, {}, options);
 			if ( typeof options == "object" ) {
 				$.each(this, function(i, obj){
-					var options = $.extend(true, {}, options);
+					var u = new uploader(options, $);
 					if ( obj.tagName.toLowerCase() == "input" && obj.hasAttribute("type") && obj.getAttribute("type") == "file" ) {
-						options.files = obj;
 						$(obj).off('change').on({
 							change: function(e){
-								uploader.send(options);
+								options.files = obj;
+								u.send();
 							}
 						});
 					} else {
-						$(obj).off('click').on({
-							click: function(e){
-								uploader.createInput(options);
-							}
+						$(obj).bind('click', function(e){
+							u.triggerClick();
 						});
 					}
 				})
